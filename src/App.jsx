@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Zap,
   Gauge,
@@ -65,7 +65,7 @@ function loadFolders() {
     // ignore
   }
 
-  return [{ id: makeId(), name: "My Meter", inputs, history }];
+  return [{ id: makeId(), name: "My Meter", inputs, history, mainName: "Main Meter", subName: "Sub Meter" }];
 }
 
 const field =
@@ -98,22 +98,38 @@ export default function MeterSplitCalculator() {
   const [newFolderName, setNewFolderName] = useState("");
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
+  const [pendingDelete, setPendingDelete] = useState(null); // { folder, index }
+  const undoTimerRef = useRef(null);
 
   useEffect(() => {
     localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
   }, [folders]);
+
+  useEffect(() => {
+    return () => {
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    };
+  }, []);
 
   const active =
     folders.find((f) => f.id === activeId) ||
     folders[0] || { id: null, name: "", inputs: defaultInputs(), history: [] };
   const inputs = active.inputs;
   const history = active.history || [];
+  const mainName = active.mainName || "Main Meter";
+  const subName = active.subName || "Sub Meter";
 
   const updateInput = (key, value) => {
     setFolders((prev) =>
       prev.map((f) =>
         f.id === active.id ? { ...f, inputs: { ...f.inputs, [key]: value } } : f
       )
+    );
+  };
+
+  const updateMeterName = (key, value) => {
+    setFolders((prev) =>
+      prev.map((f) => (f.id === active.id ? { ...f, [key]: value } : f))
     );
   };
 
@@ -225,7 +241,14 @@ export default function MeterSplitCalculator() {
   const handleAddFolder = () => {
     const name = newFolderName.trim();
     if (!name) return;
-    const newFolder = { id: makeId(), name, inputs: defaultInputs(), history: [] };
+    const newFolder = {
+      id: makeId(),
+      name,
+      inputs: defaultInputs(),
+      history: [],
+      mainName: "Main Meter",
+      subName: "Sub Meter",
+    };
     setFolders((prev) => [...prev, newFolder]);
     setActiveId(newFolder.id);
     setNewFolderName("");
@@ -247,12 +270,37 @@ export default function MeterSplitCalculator() {
   };
 
   const handleDeleteFolder = (id) => {
+    const index = folders.findIndex((f) => f.id === id);
+    if (index === -1) return;
+    const folder = folders[index];
     const next = folders.filter((f) => f.id !== id);
     setFolders(next);
     if (activeId === id) {
       setActiveId(next[0]?.id ?? null);
       if (view === "calculator") setView("home");
     }
+
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setPendingDelete({ folder, index });
+    undoTimerRef.current = setTimeout(() => {
+      setPendingDelete(null);
+      undoTimerRef.current = null;
+    }, 5000);
+  };
+
+  const handleUndoDelete = () => {
+    if (!pendingDelete) return;
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+    setFolders((prev) => {
+      const next = [...prev];
+      next.splice(Math.min(pendingDelete.index, next.length), 0, pendingDelete.folder);
+      return next;
+    });
+    setActiveId(pendingDelete.folder.id);
+    setPendingDelete(null);
   };
 
   const openFolder = (id) => {
@@ -291,44 +339,44 @@ export default function MeterSplitCalculator() {
             Tap a folder to open its calculator, or create a new one for someone else.
           </p>
 
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             {folders.map((f) => {
               const isRenaming = renamingId === f.id;
               return (
                 <div
                   key={f.id}
-                  className="relative flex flex-col items-center rounded-xl border border-[#212B1D] bg-[#0D110C] p-3 hover:border-[#3A463A] transition-colors"
+                  className="relative flex flex-col items-center rounded-2xl border border-[#212B1D] bg-[#0D110C] p-6 hover:border-[#3A463A] transition-colors"
                 >
                   {!isRenaming && (
                     <button
                       onClick={() => handleDeleteFolder(f.id)}
-                      className="absolute -top-1.5 -right-1.5 bg-[#1A1F17] border border-[#2A322C] rounded-full p-1 text-[#7C8A7A] hover:text-[#E0524A] hover:border-[#E0524A] transition-colors"
+                      className="absolute top-2 right-2 bg-[#1A1F17] border border-[#2A322C] rounded-full p-1.5 text-[#7C8A7A] hover:text-[#E0524A] hover:border-[#E0524A] transition-colors"
                     >
-                      <X size={11} />
+                      <X size={14} />
                     </button>
                   )}
 
                   <button
                     onClick={() => !isRenaming && openFolder(f.id)}
-                    className="flex flex-col items-center gap-1.5 w-full"
+                    className="flex flex-col items-center gap-2 w-full"
                   >
-                    <div className="relative w-14 h-11">
-                      <div className="absolute left-0 top-0 w-6 h-3 rounded-t-[3px] bg-[#4C5B47]" />
-                      <div className="absolute left-0 top-2 w-14 h-9 rounded-md rounded-tl-none border bg-[#3A4636] border-[#4C5B47]" />
+                    <div className="relative w-24 h-[72px]">
+                      <div className="absolute left-0 top-0 w-10 h-5 rounded-t-[5px] bg-[#4C5B47]" />
+                      <div className="absolute left-0 top-3 w-24 h-[60px] rounded-lg rounded-tl-none border-2 bg-[#3A4636] border-[#4C5B47]" />
                     </div>
-                    <span className="text-xs text-[#D8F5CE] text-center leading-tight break-words w-full px-0.5">
+                    <span className="text-base font-medium text-[#D8F5CE] text-center leading-tight break-words w-full px-1 mt-1">
                       {f.name}
                     </span>
-                    <span className="text-[10px] text-[#5C6B59]">
+                    <span className="text-xs text-[#5C6B59]">
                       {(f.history || []).length} saved
                     </span>
                   </button>
 
                   {isRenaming ? (
-                    <div className="flex items-center gap-1 w-full mt-2">
+                    <div className="flex items-center gap-1.5 w-full mt-3">
                       <input
                         autoFocus
-                        className="w-full bg-[#0F1311] border border-[#2A322C] rounded-md px-1.5 py-1 text-[#D8F5CE] text-xs focus:outline-none focus:border-[#6FE04A]"
+                        className="w-full bg-[#0F1311] border border-[#2A322C] rounded-md px-2 py-1.5 text-[#D8F5CE] text-sm focus:outline-none focus:border-[#6FE04A]"
                         value={renameValue}
                         onChange={(e) => setRenameValue(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleConfirmRename()}
@@ -337,15 +385,15 @@ export default function MeterSplitCalculator() {
                         onClick={handleConfirmRename}
                         className="text-[#6FE04A] hover:text-[#8FFF6E] transition-colors shrink-0"
                       >
-                        <Check size={14} />
+                        <Check size={18} />
                       </button>
                     </div>
                   ) : (
                     <button
                       onClick={() => handleStartRename(f)}
-                      className="flex items-center gap-1 text-[10px] text-[#7C8A7A] hover:text-[#D8F5CE] transition-colors mt-1.5"
+                      className="flex items-center gap-1.5 text-xs text-[#7C8A7A] hover:text-[#D8F5CE] transition-colors mt-2"
                     >
-                      <Pencil size={10} />
+                      <Pencil size={12} />
                       Rename
                     </button>
                   )}
@@ -354,17 +402,17 @@ export default function MeterSplitCalculator() {
             })}
 
             {/* Create new folder box */}
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#2A322C] p-3 gap-1.5">
+            <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#2A322C] p-6 gap-2">
               <button
                 onClick={handleAddFolder}
                 disabled={!newFolderName.trim()}
-                className="w-14 h-11 flex items-center justify-center rounded-md border border-dashed border-[#4C5B47] text-[#5C6B59] hover:border-[#6FE04A] hover:text-[#6FE04A] transition-colors disabled:opacity-50 disabled:hover:border-[#4C5B47] disabled:hover:text-[#5C6B59]"
+                className="w-24 h-[72px] flex items-center justify-center rounded-lg border-2 border-dashed border-[#4C5B47] text-[#5C6B59] hover:border-[#6FE04A] hover:text-[#6FE04A] transition-colors disabled:opacity-50 disabled:hover:border-[#4C5B47] disabled:hover:text-[#5C6B59]"
               >
-                <FolderPlus size={20} />
+                <FolderPlus size={30} />
               </button>
               <input
-                className="w-full bg-[#0F1311] border border-[#2A322C] rounded-md px-1.5 py-1 text-[#D8F5CE] text-[11px] text-center focus:outline-none focus:border-[#6FE04A]"
-                placeholder="Name"
+                className="w-full bg-[#0F1311] border border-[#2A322C] rounded-md px-2 py-1.5 text-[#D8F5CE] text-sm text-center focus:outline-none focus:border-[#6FE04A] mt-1"
+                placeholder="New folder name"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAddFolder()}
@@ -421,10 +469,37 @@ export default function MeterSplitCalculator() {
           </div>
         </div>
 
-        <p className="text-sm text-[#7C8A7A] mb-8 mt-2">
-          Main meter fronts the recharge. Sub meter's usage is priced at the main meter's
-          rate; main's own usage is the remainder. Both split the demand charge evenly.
+        <p className="text-sm text-[#7C8A7A] mb-6 mt-2">
+          {mainName} fronts the recharge. {subName}'s usage is priced at the {mainName.toLowerCase()}'s
+          rate; {mainName.toLowerCase()}'s own usage is the remainder. Both split the demand charge evenly.
         </p>
+
+        {/* Meter names card */}
+        <div className="bg-[#12160F] border border-[#212B1D] rounded-xl p-5 mb-5">
+          <h2 className="text-sm font-medium text-[#EAF7E4] uppercase tracking-wide mb-4">
+            Meter names
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <span className={label}>Main meter name</span>
+              <input
+                className={field.replace("font-mono text-lg", "text-base")}
+                value={active.mainName || ""}
+                placeholder="Main Meter"
+                onChange={(e) => updateMeterName("mainName", e.target.value)}
+              />
+            </div>
+            <div>
+              <span className={label}>Sub meter name</span>
+              <input
+                className={field.replace("font-mono text-lg", "text-base")}
+                value={active.subName || ""}
+                placeholder="Sub Meter"
+                onChange={(e) => updateMeterName("subName", e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
 
         {/* Receipt card */}
         <div className="bg-[#12160F] border border-[#212B1D] rounded-xl p-5 mb-5">
@@ -458,7 +533,7 @@ export default function MeterSplitCalculator() {
         <div className="grid sm:grid-cols-2 gap-5 mb-5">
           <div className="bg-[#12160F] border border-[#212B1D] rounded-xl p-5">
             <h3 className="text-[#EAF7E4] text-sm font-medium uppercase tracking-wide mb-4 border-b border-[#212B1D] pb-2">
-              Main Meter
+              {mainName}
             </h3>
             <span className={label}>Previous reading (kWh)</span>
             <NumInput value={mainPrev} onChange={(v) => updateInput("mainPrev", v)} placeholder="0.00" />
@@ -470,13 +545,13 @@ export default function MeterSplitCalculator() {
               <span className="font-mono text-[#6FE04A]">{fmt(r.mainUsage)} kWh</span>
             </div>
             <p className="text-[11px] text-[#5C6B59] mt-1">
-              Sets the unit price. Includes sub meter's draw.
+              Sets the unit price. Includes {subName.toLowerCase()}'s draw.
             </p>
           </div>
 
           <div className="bg-[#12160F] border border-[#212B1D] rounded-xl p-5">
             <h3 className="text-[#EAF7E4] text-sm font-medium uppercase tracking-wide mb-4 border-b border-[#212B1D] pb-2">
-              Sub Meter
+              {subName}
             </h3>
             <span className={label}>Previous reading (kWh)</span>
             <NumInput value={subPrev} onChange={(v) => updateInput("subPrev", v)} placeholder="0.00" />
@@ -501,13 +576,13 @@ export default function MeterSplitCalculator() {
 
           <div className="grid sm:grid-cols-2 gap-4 mb-5">
             <div className="bg-[#0A0D0B] border border-[#1B241A] rounded-lg p-4">
-              <div className="text-xs text-[#7C8A7A] mb-1">Main Meter total</div>
+              <div className="text-xs text-[#7C8A7A] mb-1">{mainName} total</div>
               <div className="font-mono text-3xl text-[#8FFF6E] tabular-nums">
                 {fmt(r.mainTotal)} <span className="text-base text-[#6FE04A]">Tk</span>
               </div>
             </div>
             <div className="bg-[#0A0D0B] border border-[#1B241A] rounded-lg p-4">
-              <div className="text-xs text-[#7C8A7A] mb-1">Sub Meter total</div>
+              <div className="text-xs text-[#7C8A7A] mb-1">{subName} total</div>
               <div className="font-mono text-3xl text-[#8FFF6E] tabular-nums">
                 {fmt(r.subTotal)} <span className="text-base text-[#6FE04A]">Tk</span>
               </div>
@@ -524,15 +599,15 @@ export default function MeterSplitCalculator() {
               <span className="text-[#D8F5CE]">{r.unitPrice.toFixed(6)} Tk/kWh</span>
             </div>
             <div className="flex justify-between">
-              <span>Sub meter usage cost</span>
+              <span>{subName} usage cost</span>
               <span className="text-[#D8F5CE]">{fmt(r.subCostRaw)} Tk</span>
             </div>
             <div className="flex justify-between">
-              <span>Main-only usage (main − sub)</span>
+              <span>{mainName}-only usage (main − sub)</span>
               <span className="text-[#D8F5CE]">{fmt(r.mainOnlyUsage)} kWh</span>
             </div>
             <div className="flex justify-between">
-              <span>Main meter usage cost</span>
+              <span>{mainName} usage cost</span>
               <span className="text-[#D8F5CE]">{fmt(r.mainCostRaw)} Tk</span>
             </div>
             <div className="flex justify-between">
@@ -566,11 +641,11 @@ export default function MeterSplitCalculator() {
         {/* Totals up top, large and clear */}
         <div className="flex justify-between gap-4 mb-3">
           <div className="flex-1 border-2 border-black rounded-md p-2 text-center">
-            <div className="text-[11px] uppercase tracking-wide">Main Meter Total</div>
+            <div className="text-[11px] uppercase tracking-wide">{mainName} Total</div>
             <div className="text-[22px] font-bold">{fmt(r.mainTotal)} Tk</div>
           </div>
           <div className="flex-1 border-2 border-black rounded-md p-2 text-center">
-            <div className="text-[11px] uppercase tracking-wide">Sub Meter Total</div>
+            <div className="text-[11px] uppercase tracking-wide">{subName} Total</div>
             <div className="text-[22px] font-bold">{fmt(r.subTotal)} Tk</div>
           </div>
         </div>
@@ -584,7 +659,7 @@ export default function MeterSplitCalculator() {
         </div>
 
         <div className="mb-1.5">
-          <div className="font-bold">STEP 2 — Main meter reading diff</div>
+          <div className="font-bold">STEP 2 — {mainName} reading diff</div>
           <div>{fmt(n(mainCurr))} − {fmt(n(mainPrev))} = <b>{fmt(r.mainUsage)} kWh</b></div>
         </div>
 
@@ -594,25 +669,25 @@ export default function MeterSplitCalculator() {
         </div>
 
         <div className="mb-1.5">
-          <div className="font-bold">STEP 4 — Sub meter reading diff</div>
+          <div className="font-bold">STEP 4 — {subName} reading diff</div>
           <div>{fmt(n(subCurr))} − {fmt(n(subPrev))} = <b>{fmt(r.subUsage)} kWh</b></div>
         </div>
 
         <div className="mb-1.5">
-          <div className="font-bold">STEP 5 — Sub meter cost</div>
+          <div className="font-bold">STEP 5 — {subName} cost</div>
           <div>{fmt(r.subUsage)} × {r.unitPrice.toFixed(6)} = {fmt(r.subCostRaw)} Tk</div>
           <div className="text-[11px] italic">+ half of demand charge: ({fmt(n(totalPaid))} − {fmt(n(energyCost))}) / 2 = {fmt(r.halfCharge)}</div>
           <div>{fmt(r.subCostRaw)} + {fmt(r.halfCharge)} = <b>{fmt(r.subTotal)} Tk</b></div>
         </div>
 
         <div className="mb-1.5">
-          <div className="font-bold">STEP 6 — Main-only usage</div>
-          <div className="text-[11px] italic">(main reading includes sub's draw)</div>
+          <div className="font-bold">STEP 6 — {mainName}-only usage</div>
+          <div className="text-[11px] italic">({mainName.toLowerCase()} reading includes {subName.toLowerCase()}'s draw)</div>
           <div>{fmt(r.mainUsage)} − {fmt(r.subUsage)} = <b>{fmt(r.mainOnlyUsage)} kWh</b></div>
         </div>
 
         <div className="mb-1.5">
-          <div className="font-bold">STEP 7 — Main meter cost</div>
+          <div className="font-bold">STEP 7 — {mainName} cost</div>
           <div>{fmt(r.mainOnlyUsage)} × {r.unitPrice.toFixed(6)} = {fmt(r.mainCostRaw)} Tk</div>
           <div>{fmt(r.mainCostRaw)} + {fmt(r.halfCharge)} = <b>{fmt(r.mainTotal)} Tk</b></div>
         </div>
@@ -668,6 +743,23 @@ export default function MeterSplitCalculator() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Undo-delete snackbar */}
+      {pendingDelete && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] no-print px-4 w-full max-w-sm">
+          <div className="flex items-center justify-between gap-3 bg-[#1E241A] border border-[#2A322C] rounded-full pl-4 pr-2 py-2 shadow-lg">
+            <span className="text-sm text-[#D8F5CE] truncate">
+              Deleted "{pendingDelete.folder.name}"
+            </span>
+            <button
+              onClick={handleUndoDelete}
+              className="text-sm font-semibold text-[#8FFF6E] px-3 py-1.5 rounded-full hover:bg-[#2A3620] transition-colors shrink-0"
+            >
+              UNDO
+            </button>
           </div>
         </div>
       )}
