@@ -163,6 +163,16 @@ export default function MeterSplitCalculator() {
     x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const handleDownload = () => {
+    const prevTitle = document.title;
+    const safeName = (active.name || "Meter Split").replace(/[\\/:*?"<>|]/g, "-");
+    document.title = safeName;
+
+    const restoreTitle = () => {
+      document.title = prevTitle;
+      window.removeEventListener("afterprint", restoreTitle);
+    };
+    window.addEventListener("afterprint", restoreTitle);
+
     window.print();
   };
 
@@ -262,9 +272,9 @@ export default function MeterSplitCalculator() {
             position: absolute;
             top: 0;
             left: 0;
-            width: 80mm;
+            width: 100%;
           }
-          @page { size: 80mm auto; margin: 6mm; }
+          @page { size: auto; margin: 14mm; }
         }
       `}</style>
 
@@ -541,62 +551,74 @@ export default function MeterSplitCalculator() {
       {/* Printable receipt — hidden on screen, shown only when printing */}
       <div
         id="meter-receipt"
-        className="bg-white text-black font-mono text-[9px] leading-tight p-2"
+        className="bg-white text-black font-mono text-[13px] leading-snug p-4"
       >
-        <div className="text-center font-bold text-[13px] mb-0.5">METER SPLIT RECEIPT</div>
-        <div className="text-center text-[9px] font-bold mb-0.5">{active.name}</div>
-        <div className="text-center text-[8px] italic mb-0.5">
+        <div className="text-center font-bold text-[20px] mb-1">METER SPLIT RECEIPT</div>
+        <div className="text-center text-[15px] font-bold mb-1">{active.name}</div>
+        <div className="text-center text-[11px] italic mb-0.5">
           main usage = main reading minus sub usage
         </div>
-        <div className="text-center text-[8px] mb-2">
+        <div className="text-center text-[11px] mb-3">
           {new Date().toLocaleString()}
         </div>
-        <div className="border-t border-dashed border-black my-1" />
+        <div className="border-t-2 border-black my-2" />
 
-        <div className="font-bold mb-0.5">STEP 1 - Adjusted energy cost</div>
-        <div>{fmt(n(energyCost))} - {fmt(n(creditBefore))} + {fmt(n(creditAfter))}</div>
-        <div className="font-bold mb-1">= {fmt(r.adjustedCost)} Tk</div>
-
-        <div className="font-bold mb-0.5">STEP 2 - Main meter reading diff</div>
-        <div>{fmt(n(mainCurr))} - {fmt(n(mainPrev))}</div>
-        <div className="font-bold mb-1">= {fmt(r.mainUsage)} kWh</div>
-
-        <div className="font-bold mb-0.5">STEP 3 - Unit price</div>
-        <div>{fmt(r.adjustedCost)} / {fmt(r.mainUsage)}</div>
-        <div className="font-bold mb-1">= {r.unitPrice.toFixed(6)} Tk/kWh</div>
-
-        <div className="font-bold mb-0.5">STEP 4 - Sub meter reading diff</div>
-        <div>{fmt(n(subCurr))} - {fmt(n(subPrev))}</div>
-        <div className="font-bold mb-1">= {fmt(r.subUsage)} kWh</div>
-
-        <div className="font-bold mb-0.5">STEP 5 - Sub meter cost</div>
-        <div>{fmt(r.subUsage)} x {r.unitPrice.toFixed(6)}</div>
-        <div>= {fmt(r.subCostRaw)} Tk</div>
-        <div className="italic text-[8px]">+ half of demand charge:</div>
-        <div>({fmt(n(totalPaid))} - {fmt(n(energyCost))}) / 2 = {fmt(r.halfCharge)}</div>
-        <div className="font-bold mb-1">{fmt(r.subCostRaw)} + {fmt(r.halfCharge)} = {fmt(r.subTotal)} Tk</div>
-
-        <div className="font-bold mb-0.5">STEP 6 - Main-only usage</div>
-        <div className="italic text-[8px]">(main reading includes sub's draw)</div>
-        <div>{fmt(r.mainUsage)} - {fmt(r.subUsage)}</div>
-        <div className="font-bold mb-1">= {fmt(r.mainOnlyUsage)} kWh</div>
-
-        <div className="font-bold mb-0.5">STEP 7 - Main meter cost</div>
-        <div>{fmt(r.mainOnlyUsage)} x {r.unitPrice.toFixed(6)}</div>
-        <div>= {fmt(r.mainCostRaw)} Tk</div>
-        <div className="font-bold mb-1">{fmt(r.mainCostRaw)} + {fmt(r.halfCharge)} = {fmt(r.mainTotal)} Tk</div>
-
-        <div className="border-t border-black my-1" />
-        <div className="flex justify-between font-bold text-[10px]">
-          <span>MAIN METER TOTAL</span>
-          <span>{fmt(r.mainTotal)} Tk</span>
+        {/* Totals up top, large and clear */}
+        <div className="flex justify-between gap-4 mb-3">
+          <div className="flex-1 border-2 border-black rounded-md p-2 text-center">
+            <div className="text-[11px] uppercase tracking-wide">Main Meter Total</div>
+            <div className="text-[22px] font-bold">{fmt(r.mainTotal)} Tk</div>
+          </div>
+          <div className="flex-1 border-2 border-black rounded-md p-2 text-center">
+            <div className="text-[11px] uppercase tracking-wide">Sub Meter Total</div>
+            <div className="text-[22px] font-bold">{fmt(r.subTotal)} Tk</div>
+          </div>
         </div>
-        <div className="flex justify-between font-bold text-[10px] mb-1">
-          <span>SUB METER TOTAL</span>
-          <span>{fmt(r.subTotal)} Tk</span>
+
+        <div className="border-t border-dashed border-black my-2" />
+        <div className="font-bold text-[13px] mb-1.5">Calculation steps</div>
+
+        <div className="mb-1.5">
+          <div className="font-bold">STEP 1 — Adjusted energy cost</div>
+          <div>{fmt(n(energyCost))} − {fmt(n(creditBefore))} + {fmt(n(creditAfter))} = <b>{fmt(r.adjustedCost)} Tk</b></div>
         </div>
-        <div className="border-t border-dashed border-black my-1" />
-        <div className="text-center italic text-[8px]">Thank you</div>
+
+        <div className="mb-1.5">
+          <div className="font-bold">STEP 2 — Main meter reading diff</div>
+          <div>{fmt(n(mainCurr))} − {fmt(n(mainPrev))} = <b>{fmt(r.mainUsage)} kWh</b></div>
+        </div>
+
+        <div className="mb-1.5">
+          <div className="font-bold">STEP 3 — Unit price</div>
+          <div>{fmt(r.adjustedCost)} / {fmt(r.mainUsage)} = <b>{r.unitPrice.toFixed(6)} Tk/kWh</b></div>
+        </div>
+
+        <div className="mb-1.5">
+          <div className="font-bold">STEP 4 — Sub meter reading diff</div>
+          <div>{fmt(n(subCurr))} − {fmt(n(subPrev))} = <b>{fmt(r.subUsage)} kWh</b></div>
+        </div>
+
+        <div className="mb-1.5">
+          <div className="font-bold">STEP 5 — Sub meter cost</div>
+          <div>{fmt(r.subUsage)} × {r.unitPrice.toFixed(6)} = {fmt(r.subCostRaw)} Tk</div>
+          <div className="text-[11px] italic">+ half of demand charge: ({fmt(n(totalPaid))} − {fmt(n(energyCost))}) / 2 = {fmt(r.halfCharge)}</div>
+          <div>{fmt(r.subCostRaw)} + {fmt(r.halfCharge)} = <b>{fmt(r.subTotal)} Tk</b></div>
+        </div>
+
+        <div className="mb-1.5">
+          <div className="font-bold">STEP 6 — Main-only usage</div>
+          <div className="text-[11px] italic">(main reading includes sub's draw)</div>
+          <div>{fmt(r.mainUsage)} − {fmt(r.subUsage)} = <b>{fmt(r.mainOnlyUsage)} kWh</b></div>
+        </div>
+
+        <div className="mb-1.5">
+          <div className="font-bold">STEP 7 — Main meter cost</div>
+          <div>{fmt(r.mainOnlyUsage)} × {r.unitPrice.toFixed(6)} = {fmt(r.mainCostRaw)} Tk</div>
+          <div>{fmt(r.mainCostRaw)} + {fmt(r.halfCharge)} = <b>{fmt(r.mainTotal)} Tk</b></div>
+        </div>
+
+        <div className="border-t-2 border-black my-2" />
+        <div className="text-center italic text-[11px]">Thank you</div>
       </div>
 
       {/* History panel */}
