@@ -470,8 +470,8 @@ export default function MeterSplitCalculator() {
         </div>
 
         <p className="text-sm text-[#7C8A7A] mb-6 mt-2">
-          {mainName} fronts the recharge. {subName}'s usage is priced at the {mainName.toLowerCase()}'s
-          rate; {mainName.toLowerCase()}'s own usage is the remainder. Both split the demand charge evenly.
+          Main meter fronts the recharge. Sub meter's usage is priced at the main meter's
+          rate; main's own usage is the remainder. Both split the demand charge evenly.
         </p>
 
         {/* Meter names card */}
@@ -533,7 +533,10 @@ export default function MeterSplitCalculator() {
         <div className="grid sm:grid-cols-2 gap-5 mb-5">
           <div className="bg-[#12160F] border border-[#212B1D] rounded-xl p-5">
             <h3 className="text-[#EAF7E4] text-sm font-medium uppercase tracking-wide mb-4 border-b border-[#212B1D] pb-2">
-              {mainName}
+              Main Meter
+              {mainName !== "Main Meter" && (
+                <span className="text-[#6FE04A] normal-case"> · {mainName}</span>
+              )}
             </h3>
             <span className={label}>Previous reading (kWh)</span>
             <NumInput value={mainPrev} onChange={(v) => updateInput("mainPrev", v)} placeholder="0.00" />
@@ -545,13 +548,16 @@ export default function MeterSplitCalculator() {
               <span className="font-mono text-[#6FE04A]">{fmt(r.mainUsage)} kWh</span>
             </div>
             <p className="text-[11px] text-[#5C6B59] mt-1">
-              Sets the unit price. Includes {subName.toLowerCase()}'s draw.
+              Sets the unit price. Includes sub meter's draw.
             </p>
           </div>
 
           <div className="bg-[#12160F] border border-[#212B1D] rounded-xl p-5">
             <h3 className="text-[#EAF7E4] text-sm font-medium uppercase tracking-wide mb-4 border-b border-[#212B1D] pb-2">
-              {subName}
+              Sub Meter
+              {subName !== "Sub Meter" && (
+                <span className="text-[#6FE04A] normal-case"> · {subName}</span>
+              )}
             </h3>
             <span className={label}>Previous reading (kWh)</span>
             <NumInput value={subPrev} onChange={(v) => updateInput("subPrev", v)} placeholder="0.00" />
@@ -576,13 +582,17 @@ export default function MeterSplitCalculator() {
 
           <div className="grid sm:grid-cols-2 gap-4 mb-5">
             <div className="bg-[#0A0D0B] border border-[#1B241A] rounded-lg p-4">
-              <div className="text-xs text-[#7C8A7A] mb-1">{mainName} total</div>
+              <div className="text-xs text-[#7C8A7A] mb-1">
+                Main Meter total{mainName !== "Main Meter" && <span className="text-[#8FFF6E] font-semibold"> · {mainName}</span>}
+              </div>
               <div className="font-mono text-3xl text-[#8FFF6E] tabular-nums">
                 {fmt(r.mainTotal)} <span className="text-base text-[#6FE04A]">Tk</span>
               </div>
             </div>
             <div className="bg-[#0A0D0B] border border-[#1B241A] rounded-lg p-4">
-              <div className="text-xs text-[#7C8A7A] mb-1">{subName} total</div>
+              <div className="text-xs text-[#7C8A7A] mb-1">
+                Sub Meter total{subName !== "Sub Meter" && <span className="text-[#8FFF6E] font-semibold"> · {subName}</span>}
+              </div>
               <div className="font-mono text-3xl text-[#8FFF6E] tabular-nums">
                 {fmt(r.subTotal)} <span className="text-base text-[#6FE04A]">Tk</span>
               </div>
@@ -599,15 +609,15 @@ export default function MeterSplitCalculator() {
               <span className="text-[#D8F5CE]">{r.unitPrice.toFixed(6)} Tk/kWh</span>
             </div>
             <div className="flex justify-between">
-              <span>{subName} usage cost</span>
+              <span>Sub meter usage cost</span>
               <span className="text-[#D8F5CE]">{fmt(r.subCostRaw)} Tk</span>
             </div>
             <div className="flex justify-between">
-              <span>{mainName}-only usage (main − sub)</span>
+              <span>Main-only usage (main − sub)</span>
               <span className="text-[#D8F5CE]">{fmt(r.mainOnlyUsage)} kWh</span>
             </div>
             <div className="flex justify-between">
-              <span>{mainName} usage cost</span>
+              <span>Main meter usage cost</span>
               <span className="text-[#D8F5CE]">{fmt(r.mainCostRaw)} Tk</span>
             </div>
             <div className="flex justify-between">
@@ -641,11 +651,13 @@ export default function MeterSplitCalculator() {
         {/* Totals up top, large and clear */}
         <div className="flex justify-between gap-4 mb-3">
           <div className="flex-1 border-2 border-black rounded-md p-2 text-center">
-            <div className="text-[11px] uppercase tracking-wide">{mainName} Total</div>
+            <div className="text-[16px] font-bold">{mainName}</div>
+            <div className="text-[11px] uppercase tracking-wide">Main Meter Total</div>
             <div className="text-[22px] font-bold">{fmt(r.mainTotal)} Tk</div>
           </div>
           <div className="flex-1 border-2 border-black rounded-md p-2 text-center">
-            <div className="text-[11px] uppercase tracking-wide">{subName} Total</div>
+            <div className="text-[16px] font-bold">{subName}</div>
+            <div className="text-[11px] uppercase tracking-wide">Sub Meter Total</div>
             <div className="text-[22px] font-bold">{fmt(r.subTotal)} Tk</div>
           </div>
         </div>
@@ -659,7 +671,7 @@ export default function MeterSplitCalculator() {
         </div>
 
         <div className="mb-1.5">
-          <div className="font-bold">STEP 2 — {mainName} reading diff</div>
+          <div className="font-bold">STEP 2 — Main meter reading diff</div>
           <div>{fmt(n(mainCurr))} − {fmt(n(mainPrev))} = <b>{fmt(r.mainUsage)} kWh</b></div>
         </div>
 
@@ -669,25 +681,25 @@ export default function MeterSplitCalculator() {
         </div>
 
         <div className="mb-1.5">
-          <div className="font-bold">STEP 4 — {subName} reading diff</div>
+          <div className="font-bold">STEP 4 — Sub meter reading diff</div>
           <div>{fmt(n(subCurr))} − {fmt(n(subPrev))} = <b>{fmt(r.subUsage)} kWh</b></div>
         </div>
 
         <div className="mb-1.5">
-          <div className="font-bold">STEP 5 — {subName} cost</div>
+          <div className="font-bold">STEP 5 — Sub meter cost</div>
           <div>{fmt(r.subUsage)} × {r.unitPrice.toFixed(6)} = {fmt(r.subCostRaw)} Tk</div>
           <div className="text-[11px] italic">+ half of demand charge: ({fmt(n(totalPaid))} − {fmt(n(energyCost))}) / 2 = {fmt(r.halfCharge)}</div>
           <div>{fmt(r.subCostRaw)} + {fmt(r.halfCharge)} = <b>{fmt(r.subTotal)} Tk</b></div>
         </div>
 
         <div className="mb-1.5">
-          <div className="font-bold">STEP 6 — {mainName}-only usage</div>
-          <div className="text-[11px] italic">({mainName.toLowerCase()} reading includes {subName.toLowerCase()}'s draw)</div>
+          <div className="font-bold">STEP 6 — Main-only usage</div>
+          <div className="text-[11px] italic">(main reading includes sub's draw)</div>
           <div>{fmt(r.mainUsage)} − {fmt(r.subUsage)} = <b>{fmt(r.mainOnlyUsage)} kWh</b></div>
         </div>
 
         <div className="mb-1.5">
-          <div className="font-bold">STEP 7 — {mainName} cost</div>
+          <div className="font-bold">STEP 7 — Main meter cost</div>
           <div>{fmt(r.mainOnlyUsage)} × {r.unitPrice.toFixed(6)} = {fmt(r.mainCostRaw)} Tk</div>
           <div>{fmt(r.mainCostRaw)} + {fmt(r.halfCharge)} = <b>{fmt(r.mainTotal)} Tk</b></div>
         </div>
